@@ -1,0 +1,13 @@
+default: &default
+  global:
+    description: "datawarehouse-dim-fact"
+
+  dependency:
+    datalake: datalake
+  dimensions:
+    dimension_one:
+      file: dimension_one.sql
+    dimension_two:
+  facts:
+    fact_one:
+      file: fact_one.sql

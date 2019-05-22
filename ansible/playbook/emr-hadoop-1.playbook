@@ -1,0 +1,65 @@
+---
+- hosts: emr
+  gather_facts: false
+  become: yes
+  become_method: sudo
+  become_user: hadoop
+  vars_files:
+    - vars/variables.yml
+
+  tasks:
+    - name: "Create oracle directory"
+      file:
+        path: "{{ oracle_base }}/instantclient/11.2.0.4.0/linux"
+        state: directory
+
+    - name: "Collect oracle instant client binary files from s3"
+      aws_s3:
+        aws_access_key: "{{ aws_access_key }}"
+        aws_secret_key: "{{ aws_secret_key }}"
+        bucket: "{{ s3_config_bucket }}"
+        prefix: "oracle/instantclient/{{ oracle_version }}/linux/"
+        mode: list
+      register: s3_oracle_files
+
+    - name: "Copy oracle instant client binary files from s3 to oracle home"
+      aws_s3:
+        aws_access_key: "{{ aws_access_key }}"
+        aws_secret_key: "{{ aws_secret_key }}"
+        bucket: "{{ s3_config_bucket }}"
+        prefix: "oracle/instantclient/{{ oracle_version }}/linux/"
+        object: "{{ item }}"
+        dest: "/home/hadoop/{{ item }}"
+        mode: get
+        overwrite: never
+      with_items: "{{ s3_oracle_files.s3_keys }}"
+
+    - shell: ls -X {{ oracle_base }}/instantclient/11.2.0.4.0/linux/
+      register: oracle_files
+
+    - name: "Extract oracle instant client binary files"
+      unarchive:
+        src: "{{ oracle_base }}/instantclient/{{ oracle_version }}/linux/{{ item }}"
+        dest: "{{ oracle_base }}"
+        remote_src: yes
+        creates: "{{ oracle_base }}/instantclient_11_2/sdk"
+      with_items: "{{ oracle_files.stdout_lines }}"
+
+    - name: "Create necessary symbolic links from oracle instant client"
+      file:
+        src: "{{ oracle_base }}/instantclient_11_2/{{ item }}.11.1"
+        dest: "{{ oracle_base }}/instantclient_11_2/{{ item }}"
+        force: no
+        state: link
+      with_items:
+        - libclntsh.so
+        - libocci.so
+
+    - name: "Configure .bash_profile with oracle variables"
+      blockinfile:
+        path: /home/hadoop/.bash_profile
+        marker: "# {mark} oracle config"
+        block: |
+          ORACLE_HOME={{ oracle_base }}/instantclient_11_2
+          LD_LIBRARY_PATH=${ORACLE_HOME}
+          export ORACLE_HOME LD_LIBRARY_PATH

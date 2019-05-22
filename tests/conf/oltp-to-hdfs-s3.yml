@@ -1,0 +1,11 @@
+default: &default
+  global:
+    description: "oltp-extract-{}-{}-to-{}-file"
+    default_timezone: "America/Sao_Paulo"
+
+  metadata:
+    hostname: test
+    port: 5432
+    username: spark_test
+    password: spark_test
+    database: spark_test

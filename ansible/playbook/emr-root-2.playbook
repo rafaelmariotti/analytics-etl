@@ -1,0 +1,47 @@
+---
+- hosts: emr
+  gather_facts: true
+  become: yes
+  become_method: sudo
+  become_user: root
+  vars_files:
+    - vars/variables.yml
+
+  tasks:
+    - name: "Install repository packages"
+      yum:
+        name: git
+        state: present
+
+    - name: "Configure EMR timezone for crontab config"
+      file:
+        src: "/usr/share/zoneinfo/America/Sao_Paulo"
+        dest: "/etc/localtime"
+        force: yes
+        state: link
+
+    - name: "Restart crontab to ensure that timezone is configured"
+      service:
+        name: crond
+        state: restarted
+
+    - name: "Create directory to copy jenkins key to access git"
+      file:
+        path: "/home/hadoop/.ssh"
+        owner: hadoop
+        group: hadoop
+        state: directory
+
+    - name: "Copy jenkins key to access git"  
+      synchronize:
+        src: "{{ git_key_path }}"
+        dest: "/home/hadoop/.ssh/id_rsa"
+        owner: no
+        group: no
+
+    - name: "Set jenkins key owner to hadoop user"
+      file:
+        path: "/home/hadoop/.ssh/id_rsa"
+        owner: hadoop
+        group: hadoop
+        mode: 0600

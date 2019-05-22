@@ -1,0 +1,4 @@
+aws_access_key: "???"
+aws_secret_key: "???"
+git_key_path: "/var/.ssh/git_key"
+s3_config_bucket: "datalake"

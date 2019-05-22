@@ -1,0 +1,47 @@
+---
+- hosts: emr
+  gather_facts: false
+  become: yes
+  become_method: sudo
+  become_user: root
+  vars_files:
+    - vars/variables.yml
+
+  tasks:
+    - name: "Configure .bash_profile with pip alias"
+      blockinfile:
+        path: /root/.bash_profile
+        marker: "# {mark} analytics etl config"
+        content: "alias pip=/usr/bin/pip-3.4"
+
+    - name: "Install python modules with pip 2.7"
+      pip:
+        executable: "/usr/bin/pip-2.7"
+        name: boto3, botocore
+        state: latest
+
+    - name: "Install python modules with pip 3.4"
+      pip:
+        executable: "/usr/bin/pip-3.4"
+        name: python-dateutil, docopt, pyyaml, psycopg2, psycopg2-binary, cx_Oracle, hdfs
+        state: latest
+
+    - name: "Collect jars from s3"
+      aws_s3:
+        aws_access_key: "{{ aws_access_key }}"
+        aws_secret_key: "{{ aws_secret_key }}"
+        bucket: "{{ s3_config_bucket }}"
+        prefix: "spark/jars/"
+        mode: list
+      register: s3_jar_files
+
+    - name: "Copy jars from s3 to Spark"
+      aws_s3:
+        aws_access_key: "{{ aws_access_key }}"
+        aws_secret_key: "{{ aws_secret_key }}"
+        bucket: "{{ s3_config_bucket }}"
+        prefix: "spark/jars/"
+        object: "{{ item }}"
+        dest: "/usr/lib/{{ item }}"
+        mode: get
+      with_items: "{{ s3_jar_files.s3_keys }}"

@@ -1,0 +1,65 @@
+---
+- hosts: emr
+  gather_facts: false
+  become: yes
+  become_method: sudo
+  become_user: hadoop
+  vars_files:
+    - vars/variables.yml
+
+  tasks:
+    - name: "Clone or update project repository"
+      git:
+        repo: git@git.com:rafaelmariotti/analytics-etl.git
+        version: master
+        accept_hostkey: yes
+        force: yes
+        dest: "/home/hadoop/analytics-etl"
+        key_file: "/home/hadoop/.ssh/id_rsa"
+
+    - name: "Configure daily crontab for analytics etl jobs"
+      cron:
+        name: "analytics daily etl jobs"
+        minute: 0
+        hour: 22
+        weekday: 0-5
+        job: "cd /home/hadoop/analytics-etl/jobs && bash daily.sh > /home/hadoop/logs/daily.log 2>&1"
+
+    - name: "Configure weekly crontab for analytics etl jobs"
+      cron:
+        name: "analytics weekly etl jobs"
+        minute: 0
+        hour: 22
+        weekday: 6
+        job: "cd /home/hadoop/analytics-etl/jobs && bash weekly.sh > /home/hadoop/logs/weekly.log 2>&1"
+
+    - name: "Configure .bash_profile with analytics etl variables for qa environment"
+      blockinfile:
+        path: /home/hadoop/.bash_profile
+        marker: "# {mark} analytics etl config"
+        content: |
+          alias python=/usr/bin/python3.4
+          source /home/hadoop/analytics-etl/ansible/playbook/vars/env_vars-qa.conf
+      when: environment_type == "qa"
+
+    - name: "Configure .bash_profile with analytics etl variables for prod environment"
+      blockinfile:
+        path: /home/hadoop/.bash_profile
+        marker: "# {mark} analytics etl config"
+        content: |
+          alias python=/usr/bin/python3.4
+          source /home/hadoop/analytics-etl/ansible/playbook/vars/env_vars-prod.conf
+      when: environment_type == "prod"
+
+    - name: "Remove jenkins key to access git"
+      file:
+        path: "/home/hadoop/.ssh/id_rsa"
+        state: absent
+      when: environment_type == "prod"
+
+    - name: "Create log directory"
+      file:
+        path: "/home/hadoop/logs"
+        owner: hadoop
+        group: hadoop
+        state: directory
