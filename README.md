@@ -1,3 +1,5 @@
+# THIS PROJECT WON'T WORK!! THIS IS JUST A PORTFOLIO PROJECT (DO NOT USE IT)
+
 ## Configurations
 
 #### Python
